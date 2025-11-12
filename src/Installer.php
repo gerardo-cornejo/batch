@@ -80,7 +80,7 @@ class Installer implements PluginInterface, EventSubscriberInterface
         $commandsTarget = $appDir . DIRECTORY_SEPARATOR . 'Commands';
 
         // Ruta del plugin dentro de /vendor
-        $pluginDir      = $vendorDir . DIRECTORY_SEPARATOR . 'innite' . DIRECTORY_SEPARATOR . 'batch';
+        $pluginDir      = $vendorDir . DIRECTORY_SEPARATOR . 'gerardo-cornejo' . DIRECTORY_SEPARATOR . 'batch';
         $stubsDir       = $pluginDir . DIRECTORY_SEPARATOR . 'stubs';
         $stubsBatchDir  = $stubsDir . DIRECTORY_SEPARATOR . 'Batch';
         $stubsLibsDir   = $stubsDir . DIRECTORY_SEPARATOR . 'Libraries';
