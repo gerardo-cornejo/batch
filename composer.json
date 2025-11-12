@@ -1,0 +1,24 @@
+{
+    "name": "gerardo-cornejo/batch",
+    "description": "Plugin para crear estructura Batch en proyectos CodeIgniter 4.",
+    "type": "composer-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Innite Solutions Perú",
+            "email": "gerardo.cornejo@innite.net"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "composer-plugin-api": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Innite\\Batch\\": "src/"
+        }
+    },
+    "extra": {
+        "class": "Innite\\Batch\\Installer"
+    }
+}
