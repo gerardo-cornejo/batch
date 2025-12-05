@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Libraries;
+namespace Innite\Batch\Libraries;
 
 use Exception;
 use InvalidArgumentException;

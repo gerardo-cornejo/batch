@@ -2,62 +2,32 @@
 
 namespace Innite\Batch;
 
-use Composer\Composer;
-use Composer\IO\IOInterface;
-use Composer\Plugin\PluginInterface;
-use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\Script\Event;
-use Composer\Script\ScriptEvents;
 
-
-class Installer implements PluginInterface, EventSubscriberInterface
+class Installer
 {
-    protected Composer $composer;
-    protected IOInterface $io;
-
-    public function activate(Composer $composer, IOInterface $io): void
+    /**
+     * Script post-install: Copia los archivos desde /stubs hacia /app del proyecto CodeIgniter 4
+     */
+    public static function postInstall(Event $event): void
     {
-        $this->composer = $composer;
-        $this->io = $io;
-    }
-
-    public function deactivate(Composer $composer, IOInterface $io): void
-    {
-        // No necesitamos lógica al desactivar
-    }
-
-    public function uninstall(Composer $composer, IOInterface $io): void
-    {
-        // Tampoco al desinstalar (no borramos archivos del proyecto)
+        self::publishFiles($event, 'post-install');
     }
 
     /**
-     * Suscribimos a eventos globales de Composer del proyecto
+     * Script post-update: Copia los archivos desde /stubs hacia /app del proyecto CodeIgniter 4
      */
-    public static function getSubscribedEvents(): array
+    public static function postUpdate(Event $event): void
     {
-        return [
-            ScriptEvents::POST_INSTALL_CMD => 'onPostInstall',
-            ScriptEvents::POST_UPDATE_CMD  => 'onPostUpdate',
-        ];
-    }
-
-    public function onPostInstall(Event $event): void
-    {
-        $this->publishFiles($event, 'post-install');
-    }
-
-    public function onPostUpdate(Event $event): void
-    {
-        $this->publishFiles($event, 'post-update');
+        self::publishFiles($event, 'post-update');
     }
 
     /**
      * Copia los archivos desde /stubs hacia /app del proyecto CodeIgniter 4
      */
-    protected function publishFiles(Event $event, string $context): void
+    protected static function publishFiles(Event $event, string $context): void
     {
-        $io = $this->io ?? $event->getIO();
+        $io = $event->getIO();
 
         // vendor-dir según la config del proyecto donde se está ejecutando Composer
         $vendorDir = $event->getComposer()->getConfig()->get('vendor-dir');
@@ -67,7 +37,7 @@ class Installer implements PluginInterface, EventSubscriberInterface
 
         // Si viene relativo, lo pasamos a absoluto respecto al cwd
         // En Windows también verificamos si no comienza con una letra de unidad (C:, D:, etc.)
-        if (!$this->isAbsolutePath($vendorDir)) {
+        if (!self::isAbsolutePath($vendorDir)) {
             $vendorDir = getcwd() . DIRECTORY_SEPARATOR . $vendorDir;
         }
 
@@ -76,14 +46,12 @@ class Installer implements PluginInterface, EventSubscriberInterface
 
         $appDir      = $projectRoot . DIRECTORY_SEPARATOR . 'app';
         $batchTarget = $appDir . DIRECTORY_SEPARATOR . 'Batch';
-        $libsTarget  = $appDir . DIRECTORY_SEPARATOR . 'Libraries';
         $commandsTarget = $appDir . DIRECTORY_SEPARATOR . 'Commands';
 
-        // Ruta del plugin dentro de /vendor
-        $pluginDir      = $vendorDir . DIRECTORY_SEPARATOR . 'gerardo-cornejo' . DIRECTORY_SEPARATOR . 'batch';
-        $stubsDir       = $pluginDir . DIRECTORY_SEPARATOR . 'stubs';
+        // Ruta de la librería dentro de /vendor
+        $libraryDir     = $vendorDir . DIRECTORY_SEPARATOR . 'gerardo-cornejo' . DIRECTORY_SEPARATOR . 'batch';
+        $stubsDir       = $libraryDir . DIRECTORY_SEPARATOR . 'stubs';
         $stubsBatchDir  = $stubsDir . DIRECTORY_SEPARATOR . 'Batch';
-        $stubsLibsDir   = $stubsDir . DIRECTORY_SEPARATOR . 'Libraries';
         $stubsCommandsDir = $stubsDir . DIRECTORY_SEPARATOR . 'Commands';
         
         // Debug: verificar que las rutas existen
@@ -107,7 +75,6 @@ class Installer implements PluginInterface, EventSubscriberInterface
                 if (is_dir($altPath)) {
                     $appDir = $altPath;
                     $batchTarget = $appDir . DIRECTORY_SEPARATOR . 'Batch';
-                    $libsTarget  = $appDir . DIRECTORY_SEPARATOR . 'Libraries';
                     $commandsTarget = $appDir . DIRECTORY_SEPARATOR . 'Commands';
                     $appFound = true;
                     $io->write(sprintf('<info>[gerardo-cornejo/batch]</info> Carpeta de aplicación encontrada en: %s', $appDir));
@@ -129,12 +96,6 @@ class Installer implements PluginInterface, EventSubscriberInterface
             return;
         }
 
-        // Crear /app/Libraries
-        if (!is_dir($libsTarget) && !mkdir($libsTarget, 0755, true) && !is_dir($libsTarget)) {
-            $io->write('<error>[gerardo-cornejo/batch]</error> No se pudo crear la carpeta app/Libraries.');
-            return;
-        }
-
         // Crear /app/Commands
         if (!is_dir($commandsTarget) && !mkdir($commandsTarget, 0755, true) && !is_dir($commandsTarget)) {
             $io->write('<error>[gerardo-cornejo/batch]</error> No se pudo crear la carpeta app/Commands.');
@@ -142,31 +103,25 @@ class Installer implements PluginInterface, EventSubscriberInterface
         }
 
         // Publicar archivos
-        $this->publishFile(
+        self::publishFile(
             $stubsBatchDir . DIRECTORY_SEPARATOR . 'Reader.php',
             $batchTarget . DIRECTORY_SEPARATOR . 'Reader.php',
             $io
         );
 
-        $this->publishFile(
+        self::publishFile(
             $stubsBatchDir . DIRECTORY_SEPARATOR . 'Processor.php',
             $batchTarget . DIRECTORY_SEPARATOR . 'Processor.php',
             $io
         );
 
-        $this->publishFile(
+        self::publishFile(
             $stubsBatchDir . DIRECTORY_SEPARATOR . 'Writer.php',
             $batchTarget . DIRECTORY_SEPARATOR . 'Writer.php',
             $io
         );
 
-        $this->publishFile(
-            $stubsLibsDir . DIRECTORY_SEPARATOR . 'Optional.php',
-            $libsTarget . DIRECTORY_SEPARATOR . 'Optional.php',
-            $io
-        );
-
-        $this->publishFile(
+        self::publishFile(
             $stubsCommandsDir . DIRECTORY_SEPARATOR . 'Execute.php',
             $commandsTarget . DIRECTORY_SEPARATOR . 'Execute.php',
             $io
@@ -175,12 +130,11 @@ class Installer implements PluginInterface, EventSubscriberInterface
         $io->write(sprintf('<info>[gerardo-cornejo/batch]</info> Archivos publicados (%s).', $context));
     }
 
-
     /**
      * Copia archivo si existe en stubs.
      * Si el archivo destino ya existe, NO lo sobreescribe (para no pisar código custom).
      */
-    protected function publishFile(string $source, string $target, IOInterface $io): void
+    protected static function publishFile(string $source, string $target, $io): void
     {
         if (!file_exists($source)) {
             $io->write(sprintf('<error>[gerardo-cornejo/batch]</error> No se encontró stub: %s', $source));
@@ -203,7 +157,7 @@ class Installer implements PluginInterface, EventSubscriberInterface
     /**
      * Verifica si una ruta es absoluta, compatible con Windows y Unix
      */
-    protected function isAbsolutePath(string $path): bool
+    protected static function isAbsolutePath(string $path): bool
     {
         // Unix/Linux: comienza con /
         if (str_starts_with($path, DIRECTORY_SEPARATOR)) {

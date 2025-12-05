@@ -1,22 +1,25 @@
-# Innite Batch Plugin
+# Innite Batch Library
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PHP Version](https://img.shields.io/badge/PHP-8.0%2B-blue.svg)](https://php.net)
 [![CodeIgniter](https://img.shields.io/badge/CodeIgniter-4.x-orange.svg)](https://codeigniter.com)
 
-Plugin de Composer para CodeIgniter 4 que proporciona una estructura completa para procesos batch (por lotes) con patrones de lectura, procesamiento y escritura.
+Biblioteca de Composer para CodeIgniter 4 que proporciona herramientas y estructura para procesos batch (por lotes) con patrones de lectura, procesamiento y escritura.
 
 ## 📋 Descripción
 
-Este plugin instala automáticamente una estructura de clases para manejar procesos batch en proyectos CodeIgniter 4, siguiendo el patrón **Read-Process-Write** que es común en el procesamiento por lotes.
+Esta biblioteca instala automáticamente una estructura de clases base en tu proyecto CodeIgniter 4 para manejar procesos batch, siguiendo el patrón **Read-Process-Write** que es común en el procesamiento por lotes. Además, proporciona clases auxiliares disponibles directamente desde `vendor/` para uso inmediato.
 
 ### Componentes incluidos:
 
-- **Reader**: Clase para leer datos desde diversas fuentes
-- **Processor**: Clase para procesar y transformar los datos
-- **Writer**: Clase para escribir/guardar los resultados
+**Clases en tu proyecto (app/):**
+- **Reader**: Clase base para leer datos desde diversas fuentes
+- **Processor**: Clase base para procesar y transformar los datos
+- **Writer**: Clase base para escribir/guardar los resultados
 - **Execute**: Comando CLI para ejecutar procesos batch
-- **Optional**: Biblioteca auxiliar opcional
+
+**Biblioteca disponible desde vendor/:**
+- **Optional**: Implementación del patrón Optional de Java para manejo seguro de valores nullable
 
 ## 🚀 Instalación
 
@@ -32,7 +35,16 @@ Este plugin instala automáticamente una estructura de clases para manejar proce
 composer require gerardo-cornejo/batch
 ```
 
-El plugin se ejecutará automáticamente después de la instalación y creará la siguiente estructura en tu proyecto:
+Durante la instalación, Composer te pedirá confirmación para ejecutar el plugin:
+
+```
+gerardo-cornejo/batch contains a Composer plugin which is currently not in your allow-plugins config.
+Do you trust "gerardo-cornejo/batch" to execute code and wish to enable it now? [y,n,d,?] y
+```
+
+Escribe **`y`** y presiona Enter. Esto es una medida de seguridad de Composer.
+
+**¡La instalación es completamente automática!** El plugin creará inmediatamente la siguiente estructura en tu proyecto:
 
 ```
 app/
@@ -40,13 +52,31 @@ app/
 │   ├── Reader.php
 │   ├── Processor.php
 │   └── Writer.php
-├── Commands/
-│   └── Execute.php
-└── Libraries/
-    └── Optional.php
+└── Commands/
+    └── Execute.php
 ```
 
-## 📁 Estructura de Archivos
+**Nota:** Los archivos solo se crean si no existen. No se sobrescribirán personalizaciones existentes.
+
+### Configuración permanente (opcional)
+
+Si no quieres que Composer pregunte cada vez, agrega esto a tu `composer.json` del proyecto:
+
+```json
+{
+    "config": {
+        "allow-plugins": {
+            "gerardo-cornejo/batch": true
+        }
+    }
+}
+```
+
+## 📁 Uso
+
+### Clases Batch en tu Proyecto
+
+Las clases se crean en `app/Batch/` para que las personalices según tus necesidades:
 
 ### Reader.php
 Responsable de leer datos desde diversas fuentes (archivos, bases de datos, APIs, etc.)
@@ -285,6 +315,40 @@ php spark batch:execute data.csv
 php spark batch:execute data.csv --dry-run
 ```
 
+### 4. Usar la biblioteca Optional
+
+La clase `Optional` está disponible directamente desde `vendor/` para manejo seguro de valores nullable:
+
+```php
+<?php
+
+use Innite\Batch\Libraries\Optional;
+
+// Crear un Optional con valor
+$optional = Optional::of('valor');
+
+// Crear un Optional que acepta null
+$optional = Optional::ofNullable($posibleNull);
+
+// Verificar si tiene valor
+if ($optional->isPresent()) {
+    $valor = $optional->get();
+}
+
+// Usar valor por defecto si está vacío
+$valor = $optional->orElse('valor por defecto');
+
+// Transformar el valor si existe
+$resultado = $optional
+    ->map(fn($v) => strtoupper($v))
+    ->orElse('SIN VALOR');
+
+// Filtrar valores
+$mayores = Optional::ofNullable($edad)
+    ->filter(fn($e) => $e >= 18)
+    ->orElse(0);
+```
+
 ## ⚙️ Características
 
 - ✅ **Instalación automática**: Se instala automáticamente con Composer
@@ -294,6 +358,7 @@ php spark batch:execute data.csv --dry-run
 - ✅ **Compatible con Windows y Unix**: Manejo correcto de rutas
 - ✅ **No sobrescribe archivos**: Respeta personalizaciones existentes
 - ✅ **Detección inteligente**: Encuentra automáticamente la carpeta `app`
+- ✅ **Biblioteca Optional**: Manejo seguro de valores nullable disponible en vendor
 
 ## 🛠️ Casos de Uso
 
@@ -357,4 +422,8 @@ Si encuentras algún problema o tienes sugerencias:
 
 - [Documentación de CodeIgniter 4](https://codeigniter4.github.io/userguide/)
 - [Guía de CLI Commands](https://codeigniter4.github.io/userguide/cli/cli_commands.html)
-- [Composer Plugins](https://getcomposer.org/doc/articles/plugins.md)
+- [Composer Scripts](https://getcomposer.org/doc/articles/scripts.md)
+
+---
+
+**Nota técnica**: Esta biblioteca utiliza scripts de Composer (`post-install-cmd` y `post-update-cmd`) para copiar automáticamente las clases base a tu proyecto, mientras mantiene las clases auxiliares como `Optional` disponibles directamente desde `vendor/` para su uso inmediato sin necesidad de copiar archivos.

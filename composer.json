@@ -1,6 +1,6 @@
 {
     "name": "gerardo-cornejo/batch",
-    "description": "Plugin para crear estructura Batch en proyectos CodeIgniter 4.",
+    "description": "Biblioteca para procesos batch (por lotes) en proyectos CodeIgniter 4 con patrón Read-Process-Write.",
     "type": "composer-plugin",
     "license": "MIT",
     "authors": [
@@ -19,6 +19,6 @@
         }
     },
     "extra": {
-        "class": "Innite\\Batch\\Installer"
+        "class": "Innite\\Batch\\Plugin"
     }
 }
