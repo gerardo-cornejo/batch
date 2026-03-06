@@ -5,19 +5,19 @@ namespace Innite\Batch\Libraries;
 use RuntimeException;
 
 /**
- * ControlAClient
+ * QueryExecutor
  *
  * Cliente HTTP para comunicarse con un servidor control-a.
  * Lee CONTROL_A_URL y CONTROL_A_KEY del entorno (.env del proyecto CI4).
  *
  * Uso:
- *   $client = new ControlAClient();
+ *   $client = new QueryExecutor();
  *   $rows   = $client->run('mysql-produccion', 'SELECT * FROM clientes');
  *   // SELECT  → array de filas
  *   // DML     → bool (true si affected_rows >= 0)
  *   // Error   → null  ($client->getError() describe el problema)
  */
-class ControlAClient
+class QueryExecutor
 {
     private string  $baseUrl;
     private string  $apiKey;
@@ -43,13 +43,13 @@ class ControlAClient
 
         if (empty($url)) {
             throw new \RuntimeException(
-                "ControlAClient: variable '{$urlEnvKey}' no disponible. " .
+                "QueryExecutor: variable '{$urlEnvKey}' no disponible. " .
                     'Asegúrate de ejecutar este código dentro de un job lanzado por control-a.'
             );
         }
         if (empty($key)) {
             throw new \RuntimeException(
-                "ControlAClient: variable '{$keyEnvKey}' no disponible. " .
+                "QueryExecutor: variable '{$keyEnvKey}' no disponible. " .
                     'Asegúrate de ejecutar este código dentro de un job lanzado por control-a.'
             );
         }
