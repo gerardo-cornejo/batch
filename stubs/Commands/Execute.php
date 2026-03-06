@@ -6,6 +6,7 @@ use App\Batch\Processor;
 use App\Batch\Reader;
 use App\Batch\Writer;
 use CodeIgniter\CLI\BaseCommand;
+use Innite\Batch\Libraries\ArgumentHandler;
 
 class Execute extends BaseCommand
 {
@@ -58,6 +59,7 @@ class Execute extends BaseCommand
      */
     public function run(array $params)
     {
+        ArgumentHandler::setParams($params);
         $data = Reader::execute($params);
         Processor::execute($data);
         Writer::execute($data);
