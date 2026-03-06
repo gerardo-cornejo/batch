@@ -210,7 +210,7 @@ class Optional
      * @return mixed
      * @throws InvalidArgumentException
      */
-    public function orElseThrow(callable $exceptionSupplier = null): mixed
+    public function orElseThrow(callable $exceptionSupplier): mixed
     {
         if ($this->isPresent()) {
             return $this->value;
