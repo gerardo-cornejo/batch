@@ -2,6 +2,8 @@
 
 namespace Innite\Batch\Libraries;
 
+use RuntimeException;
+
 /**
  * ControlAClient
  *
@@ -42,13 +44,13 @@ class ControlAClient
         if (empty($url)) {
             throw new \RuntimeException(
                 "ControlAClient: variable '{$urlEnvKey}' no disponible. " .
-                'Asegúrate de ejecutar este código dentro de un job lanzado por control-a.'
+                    'Asegúrate de ejecutar este código dentro de un job lanzado por control-a.'
             );
         }
         if (empty($key)) {
             throw new \RuntimeException(
                 "ControlAClient: variable '{$keyEnvKey}' no disponible. " .
-                'Asegúrate de ejecutar este código dentro de un job lanzado por control-a.'
+                    'Asegúrate de ejecutar este código dentro de un job lanzado por control-a.'
             );
         }
 
@@ -172,23 +174,14 @@ class ControlAClient
         $body     = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr  = curl_error($ch);
-        curl_close($ch);
+        unset($ch);
 
-        if ($body === false || $curlErr !== '') {
-            $this->lastError = 'Error cURL: ' . $curlErr;
-            return null;
-        }
-
-        // 5xx → error de servidor
-        if ($httpCode >= 500) {
-            $this->lastError = "Error del servidor control-a (HTTP {$httpCode}).";
-            return null;
-        }
-
-        // 401 / 403 → autenticación fallida
-        if ($httpCode === 401 || $httpCode === 403) {
-            $this->lastError = "Acceso denegado (HTTP {$httpCode}). Verifica CONTROL_A_KEY.";
-            return null;
+        if ($curlErr && strlen($curlErr) > 0) {
+            $this->lastError = $curlErr;
+            throw new RuntimeException($this->lastError);
+        } else if ($httpCode >= 400 && $httpCode <= 503) {
+            $this->lastError = "[Error {$httpCode}]: " . ($body ?? $curlErr);
+            throw new RuntimeException($this->lastError);
         }
 
         return (string) $body;
