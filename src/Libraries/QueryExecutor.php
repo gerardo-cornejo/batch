@@ -12,7 +12,7 @@ use RuntimeException;
  *
  * Uso:
  *   $client = new QueryExecutor();
- *   $rows   = $client->run('mysql-produccion', 'SELECT * FROM clientes');
+ *   $rows   = $client->run('mysql-produccion', ['SELECT * FROM clientes']);
  *   // SELECT  → array de filas
  *   // DML     → bool (true si affected_rows >= 0)
  *   // Error   → null  ($client->getError() describe el problema)
@@ -22,9 +22,14 @@ class QueryExecutor
     private string  $baseUrl;
     private string  $apiKey;
     private ?string $lastError = null;
-
-    /** Segundos de espera máxima para la petición HTTP */
     private int $timeout;
+
+    // Builder properties
+    private string $builderAlias = '';
+    private bool $builderAutocommit = true;
+    private array $builderQueries = [];
+    private $builderOnError = null;
+    private bool $builderErrorOccurred = false;
 
     /**
      * @param int    $timeout  Timeout en segundos (default 30)
@@ -60,28 +65,75 @@ class QueryExecutor
     }
 
     // -------------------------------------------------------------------------
-    // API pública
+    // Builder API
     // -------------------------------------------------------------------------
 
     /**
-     * Ejecuta una query SQL en el servidor control-a usando el alias de conexión.
-     *
-     * @param string $alias  Alias de conexión registrado en control-a
-     * @param string $query  Sentencia SQL completa
-     *
-     * @return array|bool|null
-     *   - array  → resultado de SELECT (puede ser vacío [])
-     *   - true   → DML exitoso (INSERT / UPDATE / DELETE / DDL)
-     *   - false  → DML rechazado por el servidor (sin excepción)
-     *   - null   → error de comunicación o de servidor (ver getError())
+     * Establece el alias de conexión.
      */
-    public function run(string $alias, string $query): array|bool|null
+    public function alias(string $alias): self
+    {
+        $this->builderAlias = $alias;
+        return $this;
+    }
+
+    /**
+     * Establece el modo autocommit.
+     */
+    public function autocommit(bool $autocommit): self
+    {
+        $this->builderAutocommit = $autocommit;
+        return $this;
+    }
+
+    /**
+     * Agrega una query a la lista de queries a ejecutar.
+     */
+    public function run(string $query): self
+    {
+        $this->builderQueries[] = $query;
+        return $this;
+    }
+
+    /**
+     * Define un callback para manejar errores.
+     * El callback recibe el mensaje de error como argumento.
+     */
+    public function onError(callable $callback): self
+    {
+        $this->builderOnError = $callback;
+        return $this;
+    }
+
+    /**
+     * Ejecuta todas las queries acumuladas.
+     */
+    public function execute(): array|bool|null
     {
         $this->lastError = null;
+        $this->builderErrorOccurred = false;
+
+        if (empty($this->builderAlias)) {
+            $this->lastError = 'Alias de conexión no definido.';
+            $this->builderErrorOccurred = true;
+            if ($this->builderOnError) {
+                ($this->builderOnError)($this->lastError);
+            }
+            return null;
+        }
+        if (empty($this->builderQueries)) {
+            $this->lastError = 'No hay queries para ejecutar.';
+            $this->builderErrorOccurred = true;
+            if ($this->builderOnError) {
+                ($this->builderOnError)($this->lastError);
+            }
+            return null;
+        }
 
         $payload = json_encode([
-            'alias' => $alias,
-            'query' => $query,
+            'alias' => $this->builderAlias,
+            'queries' => $this->builderQueries,
+            'autocommit' => $this->builderAutocommit,
         ]);
 
         $timestamp = (string) time();
@@ -96,7 +148,10 @@ class QueryExecutor
         $response = $this->post('/api/query', $payload, $headers);
 
         if ($response === null) {
-            // lastError ya fue asignado en post()
+            $this->builderErrorOccurred = true;
+            if ($this->builderOnError) {
+                ($this->builderOnError)($this->lastError);
+            }
             return null;
         }
 
@@ -104,11 +159,19 @@ class QueryExecutor
 
         if (json_last_error() !== JSON_ERROR_NONE) {
             $this->lastError = 'Respuesta inválida del servidor (JSON malformado).';
+            $this->builderErrorOccurred = true;
+            if ($this->builderOnError) {
+                ($this->builderOnError)($this->lastError);
+            }
             return null;
         }
 
         if (empty($data['success'])) {
             $this->lastError = $data['message'] ?? 'El servidor reportó un error sin descripción.';
+            $this->builderErrorOccurred = true;
+            if ($this->builderOnError) {
+                ($this->builderOnError)($this->lastError);
+            }
             // Si el servidor respondió con un DML fallido explícito, devolver false
             return isset($data['type']) && $data['type'] === 'write' ? false : null;
         }
@@ -120,6 +183,14 @@ class QueryExecutor
 
         // INSERT / UPDATE / DELETE / DDL
         return true;
+    }
+
+    /**
+     * Indica si ocurrió error en la última ejecución builder.
+     */
+    public function errorOccurred(): bool
+    {
+        return $this->builderErrorOccurred;
     }
 
     /**
@@ -178,10 +249,10 @@ class QueryExecutor
 
         if ($curlErr && strlen($curlErr) > 0) {
             $this->lastError = $curlErr;
-            throw new RuntimeException($this->lastError);
+            return null;
         } else if ($httpCode >= 400 && $httpCode <= 503) {
             $this->lastError = "[Error {$httpCode}]: " . ($body ?? $curlErr);
-            throw new RuntimeException($this->lastError);
+            return null;
         }
 
         return (string) $body;
