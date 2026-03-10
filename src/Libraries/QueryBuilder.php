@@ -1,6 +1,7 @@
 <?php
 
-namespace App\Libraries;
+namespace Innite\Batch\Libraries;
+
 
 /**
  * QueryBuilder — Constructor de queries SQL fluente (encadenable).
@@ -1044,7 +1045,7 @@ class QueryBuilder
 
         throw new \InvalidArgumentException(
             "QueryBuilder: operador '{$operatorOrValue}' no válido. "
-            . 'Usa: ' . implode(', ', $validOperators)
+                . 'Usa: ' . implode(', ', $validOperators)
         );
     }
 
