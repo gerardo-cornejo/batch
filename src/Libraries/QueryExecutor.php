@@ -29,6 +29,7 @@ class QueryExecutor
     private bool $builderAutocommit = true;
     private array $builderQueries = [];
     private $builderOnError = null;
+    private $builderOnSuccess = null;
     private bool $builderErrorOccurred = false;
 
     /**
@@ -106,6 +107,16 @@ class QueryExecutor
     }
 
     /**
+     * Define un callback para manejar éxito.
+     * El callback recibe el resultado como argumento.
+     */
+    public function onSuccess(callable $callback): self
+    {
+        $this->builderOnSuccess = $callback;
+        return $this;
+    }
+
+    /**
      * Ejecuta todas las queries acumuladas.
      */
     public function execute(): array|bool|null
@@ -178,10 +189,17 @@ class QueryExecutor
 
         // SELECT
         if (($data['type'] ?? '') === 'select') {
-            return $data['result'] ?? [];
+            $result = $data['result'] ?? [];
+            if ($this->builderOnSuccess) {
+                ($this->builderOnSuccess)($result);
+            }
+            return $result;
         }
 
         // INSERT / UPDATE / DELETE / DDL
+        if ($this->builderOnSuccess) {
+            ($this->builderOnSuccess)(true);
+        }
         return true;
     }
 
@@ -257,4 +275,16 @@ class QueryExecutor
 
         return (string) $body;
     }
+
+    public function clear(): void
+    {
+        $this->builderAlias = '';
+        $this->builderAutocommit = true;
+        $this->builderQueries = [];
+        $this->builderOnError = null;
+        $this->builderErrorOccurred = false;
+        $this->lastError = null;
+    }
+
+    
 }
