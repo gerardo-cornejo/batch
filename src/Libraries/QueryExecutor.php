@@ -12,7 +12,7 @@ use RuntimeException;
  *
  * Uso:
  *   $client = new QueryExecutor();
- *   $rows   = $client->run('mysql-produccion', ['SELECT * FROM clientes']);
+ *   $rows   = $client->addQuery('mysql-produccion', ['SELECT * FROM clientes']);
  *   // SELECT  → array de filas
  *   // DML     → bool (true si affected_rows >= 0)
  *   // Error   → null  ($client->getError() describe el problema)
@@ -23,6 +23,7 @@ class QueryExecutor
     private string  $apiKey;
     private ?string $lastError = null;
     private int $timeout;
+    private bool $debug = false;
 
     // Builder properties
     private string $builderAlias = '';
@@ -74,6 +75,9 @@ class QueryExecutor
      */
     public function alias(string $alias): self
     {
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::alias] Alias set: {$alias}");
+        }
         $this->builderAlias = $alias;
         return $this;
     }
@@ -83,6 +87,9 @@ class QueryExecutor
      */
     public function autocommit(bool $autocommit): self
     {
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::autocommit] Autocommit set: " . ($autocommit ? 'true' : 'false'));
+        }
         $this->builderAutocommit = $autocommit;
         return $this;
     }
@@ -90,8 +97,11 @@ class QueryExecutor
     /**
      * Agrega una query a la lista de queries a ejecutar.
      */
-    public function run(string $query): self
+    public function addQuery(string $query): self
     {
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::addQuery] Query added: {$query}");
+        }
         $this->builderQueries[] = $query;
         return $this;
     }
@@ -123,6 +133,10 @@ class QueryExecutor
     {
         $this->lastError = null;
         $this->builderErrorOccurred = false;
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::execute] last error: " . ($this->lastError ?? 'null'));
+            log_message("debug", "[QueryExecutor::execute] builder error occurred: " . ($this->builderErrorOccurred ? 'true' : 'false'));
+        }
 
         if (empty($this->builderAlias)) {
             $this->lastError = 'Alias de conexión no definido.';
@@ -147,6 +161,9 @@ class QueryExecutor
             'autocommit' => $this->builderAutocommit,
         ]);
 
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::execute] Payload: " . ($payload ?? 'null'));
+        }
         $timestamp = (string) time();
         $signature = $this->sign($payload, $timestamp);
 
@@ -157,11 +174,17 @@ class QueryExecutor
         ];
 
         $response = $this->post('/api/query', $payload, $headers);
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::execute] Response: " . ($response ?? 'null'));
+        }
 
         if ($response === null) {
             $this->builderErrorOccurred = true;
             if ($this->builderOnError) {
                 ($this->builderOnError)($this->lastError);
+            }
+            if ($this->debug) {
+                log_message("debug", "[QueryExecutor::execute] Error occurred: " . ($this->lastError ?? 'null'));
             }
             return null;
         }
@@ -176,6 +199,9 @@ class QueryExecutor
             }
             return null;
         }
+        if ($this->debug) {
+            log_message("debug", "[QueryExecutor::execute] Decoded response: " . print_r($data, true));
+        }
 
         if (empty($data['success'])) {
             $this->lastError = $data['message'] ?? 'El servidor reportó un error sin descripción.';
@@ -189,7 +215,7 @@ class QueryExecutor
 
         // SELECT
         if (($data['type'] ?? '') === 'select') {
-            $result = $data['result'] ?? [];
+            $result = $data['results'] ?? [];
             if ($this->builderOnSuccess) {
                 ($this->builderOnSuccess)($result);
             }
@@ -286,5 +312,9 @@ class QueryExecutor
         $this->lastError = null;
     }
 
-    
+    public function debug()
+    {
+        $this->debug = true;
+        return $this;
+    }
 }
